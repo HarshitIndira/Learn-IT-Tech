@@ -1,11 +1,30 @@
+
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const path = require('path');
+const cors = require('cors'); // Import the CORS middleware
+const { error } = require('console');
+const { MongoClient } = require('mongodb');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+app.use(cors());
+
+let sessionData;
+// CORS middleware
+
+// Serialize user to store in session
+passport.serializeUser(function(user, done) {
+    done(null, user); // Serialize the entire user object
+});
+
+// Deserialize user from session
+passport.deserializeUser(function(user, done) {
+    done(null, user); // Deserialize the entire user object
+});
+
 // Set up session middleware
 app.use(session({
     secret: 'This is my secret key for learn it tech web application',
@@ -17,17 +36,25 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
+
 //Configure passport
 passport.use(new GoogleStrategy({
-    clientID: 'your_client_id',
-    clientSecret: 'your_client_secret',
-    callbackURL: '/auth/google/callback'
-}, (accessToken, refreshToken, profile, done) => {
+    clientID: '1096220527316-apgu21nl03gbfa8c43tmdn53i2389o3k.apps.googleusercontent.com',
+    clientSecret: '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',
+    callbackURL: 'http://localhost:3000/auth/google/callback',
+    passReqToCallback: true // Add this option
+}, (req, accessToken, refreshToken, profile, done) => {
     // Here, you can handle user authentication logic
     // For simplicity, we'll just return the user profile
+
+    // Store user profile data in session
+    if (profile) {
+        req.session.user = profile;
+    }
+
+    // Call done to indicate successful authentication
     return done(null, profile);
 }));
-
 
 // Set up EJS as view engine
 app.set('view engine', 'ejs');
@@ -39,15 +66,57 @@ app.get('/auth/google',
 
 app.get('/auth/google/callback',
     passport.authenticate('google', { failureRedirect: '/login' }),
-    (req, res) => {
-        // Successful authentication, redirect to profile page
-        res.redirect('/profile');
+    async (req, res) => {
+        try {
+            if (!req.session.passport) {
+                // If session data is not available, redirect to login
+                return res.redirect('/login');
+            }
+
+            // Extract user information from the authenticated request
+            const { displayName, email } = req.session.passport.user;
+
+            // Connect to MongoDB
+            const client = new MongoClient('mongodb://localhost:27017', { useNewUrlParser: true, useUnifiedTopology: true });
+            await client.connect();
+
+            // Access the database and collection
+            const db = client.db('SSO');
+            const collection = db.collection('user');
+
+            // Insert a new document for the user
+            await collection.insertOne({ displayName, email });
+
+            // Close the MongoDB connection
+            await client.close();
+
+            // Redirect to the profile page
+            res.redirect('/profile');
+        } catch (error) {
+            console.error('Error saving user data:', error);
+            // Handle error redirection or display error page
+            res.redirect('/error');
+        }
     });
 
-app.get('/logout', (req, res) => {
-    req.logout();
-    res.redirect('/');
-});
+
+    app.get('/logout', (req, res) => {
+        try {
+            req.logout((err) => {
+                if (err) {
+                    console.error('Error during logout:', err);
+                    res.status(500).send('Internal server error');
+                    return;
+                }
+                res.redirect('/');
+            });
+        } catch (error) {
+            console.error('Error during logout:', error);
+            res.status(500).send('Internal server error');
+        }
+    });
+
+
 
 //Protected routes
 function ensureAuthenticated(req, res, next) {
@@ -61,9 +130,24 @@ app.get('/', (req, res) => {
     res.render('login');
 });
 
-app.get('/profile', ensureAuthenticated, (req, res) => {
-    res.render('profile');
+
+// Profile route
+app.get("/profile", ensureAuthenticated, (req, res) => {
+    // Assuming user object is available in the request
+    const user = req.user;
+  
+    // Assuming user.displayName is available
+    const displayName = user.displayName;
+  
+    // Construct JSON response containing the displayName
+    const responseData = { displayName };
+  
+    // Send JSON response
+    res.json(displayName);
+    
 });
+
+  
 
 //middleware to handle error while authentication
 app.use((err, req, res, next) => {
@@ -74,10 +158,14 @@ app.use((err, req, res, next) => {
     });
 });
 
+app.get('/checkSession', (req, res) => {
+    const sessionId = req.sessionID; // Retrieve the session ID from the request object
+    res.send(`Session ID: ${sessionId}`);
+});
+
+
 
 //Listening to PORT
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
-
-

@@ -4,9 +4,30 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile - Learn IT Tech</title>
+    <!-- Ensure Axios library is loaded -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        // Wrap script inside a function to ensure it executes when DOM is loaded
+        document.addEventListener("DOMContentLoaded", function() {
+            console.log("Script executing...");
+            // Fetch profile data from the server using Axios
+            axios.get('/profile')
+                .then(response => {
+                    // Handle successful response
+                    const data = response.data;
+                    const displayName = data.displayName;
+                    console.log(displayName);
+                    document.getElementById('displayName').textContent = displayName;
+                })
+                .catch(error => {
+                    // Handle error
+                    console.error('Error fetching profile data:', error);
+                });
+        });
+    </script>
 </head>
 <body>
-    <h1>Welcome to your profile, <%= user.displayName %>!</h1>
+    <h1>Welcome to your profile, <span id="displayName"></span></h1>
     <a href="/logout">Logout</a>
 </body>
 </html>
