@@ -39,8 +39,8 @@ app.use(passport.session());
 
 //Configure passport
 passport.use(new GoogleStrategy({
-    clientID: '1096220527316-apgu21nl03gbfa8c43tmdn53i2389o3k.apps.googleusercontent.com',
-    clientSecret: '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',
+    clientID: 'Your_Client_Id',
+    clientSecret: 'Your_Secret_ID',
     callbackURL: 'http://localhost:3000/auth/google/callback',
     passReqToCallback: true // Add this option
 }, (req, accessToken, refreshToken, profile, done) => {
