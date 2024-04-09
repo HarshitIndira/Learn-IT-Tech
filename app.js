@@ -1,4 +1,4 @@
-
+const os = require('os');
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
@@ -16,12 +16,12 @@ let sessionData;
 // CORS middleware
 
 // Serialize user to store in session
-passport.serializeUser(function(user, done) {
+passport.serializeUser(function (user, done) {
     done(null, user); // Serialize the entire user object
 });
 
 // Deserialize user from session
-passport.deserializeUser(function(user, done) {
+passport.deserializeUser(function (user, done) {
     done(null, user); // Deserialize the entire user object
 });
 
@@ -72,12 +72,18 @@ app.get('/auth/google/callback',
                 // If session data is not available, redirect to login
                 return res.redirect('/login');
             }
+            const networkInterfaces = os.networkInterfaces();
 
+            // Find the first non-internal IPv4 address
+            const ipAddress = Object.values(networkInterfaces)
+                .flat()
+                .find((iface) => iface.family === 'IPv4' && !iface.internal);
+            const myIp = ipAddress.address;
             // Extract user information from the authenticated request
-            const { displayName, email } = req.session.passport.user;
-
+            const { displayName } = req.session.passport.user;
+            console.log(displayName);
             // Connect to MongoDB
-            const client = new MongoClient('mongodb://localhost:27017', { useNewUrlParser: true, useUnifiedTopology: true });
+            const client = new MongoClient('mongodb://localhost:27017');
             await client.connect();
 
             // Access the database and collection
@@ -85,7 +91,7 @@ app.get('/auth/google/callback',
             const collection = db.collection('user');
 
             // Insert a new document for the user
-            await collection.insertOne({ displayName, email });
+            await collection.insertOne({ displayName, myIp });
 
             // Close the MongoDB connection
             await client.close();
@@ -100,21 +106,21 @@ app.get('/auth/google/callback',
     });
 
 
-    app.get('/logout', (req, res) => {
-        try {
-            req.logout((err) => {
-                if (err) {
-                    console.error('Error during logout:', err);
-                    res.status(500).send('Internal server error');
-                    return;
-                }
-                res.redirect('/');
-            });
-        } catch (error) {
-            console.error('Error during logout:', error);
-            res.status(500).send('Internal server error');
-        }
-    });
+app.get('/logout', (req, res) => {
+    try {
+        req.logout((err) => {
+            if (err) {
+                console.error('Error during logout:', err);
+                res.status(500).send('Internal server error');
+                return;
+            }
+            res.redirect('/');
+        });
+    } catch (error) {
+        console.error('Error during logout:', error);
+        res.status(500).send('Internal server error');
+    }
+});
 
 
 
@@ -133,21 +139,13 @@ app.get('/', (req, res) => {
 
 // Profile route
 app.get("/profile", ensureAuthenticated, (req, res) => {
-    // Assuming user object is available in the request
     const user = req.user;
-  
-    // Assuming user.displayName is available
     const displayName = user.displayName;
-  
-    // Construct JSON response containing the displayName
-    const responseData = { displayName };
-  
-    // Send JSON response
-    res.json(displayName);
-    
+    res.render('profile', { displayName });
+
 });
 
-  
+
 
 //middleware to handle error while authentication
 app.use((err, req, res, next) => {
