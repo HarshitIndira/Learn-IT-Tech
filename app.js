@@ -27,7 +27,7 @@ passport.deserializeUser(function (user, done) {
 
 // Set up session middleware
 app.use(session({
-    secret: 'This is my secret key for learn it tech web application',
+    secret: 'Your_Secret_Key',
     resave: false,
     saveUninitialized: false
 }));
